@@ -25,6 +25,13 @@ original_image = Image.open(logo_path)
 
 print(f"Application Path: {application_path}")
 print(f"Logo Path: {logo_path}")
+def resize_image_if_needed(img):
+    max_width = 1028
+    if img.width > max_width:
+        # Calculate the new height to maintain the aspect ratio
+        new_height = int((max_width / img.width) * img.height)
+        img = img.resize((max_width, new_height), Image.LANCZOS)  # Use ImageResampling.LANCZOS for high-quality downsampling
+    return img
 
 def process_psd(file_path):
     psd = PSDImage.open(file_path)
@@ -77,6 +84,7 @@ def downgrade_images_in_folder(folder_path, max_size_kb, progress_bar):
             print('Process stopped by user.')
             break
         original_path = os.path.join(folder_path, filename)
+        quality = 100
         if filename.lower().endswith('.psd'):
             # Special handling for PSD files
             try:
@@ -90,17 +98,15 @@ def downgrade_images_in_folder(folder_path, max_size_kb, progress_bar):
             new_path = os.path.join(output_folder, filename.rsplit('.', 1)[0] + '_downgraded.' + filename.rsplit('.', 1)[1])
 
             with Image.open(original_path) as img:
+                img = resize_image_if_needed(img)
+                new_path = os.path.join(output_folder,
+                                        filename.rsplit('.', 1)[0] + '_downgraded.' + filename.rsplit('.', 1)[1])
                 img_format = img.format
-                if os.path.getsize(original_path) > max_size_kb * 1024:
-                    quality = 85
+                img.save(new_path, format=img_format, quality=100)  # Start with a default quality
+                while os.path.getsize(new_path) > max_size_kb * 1024 and quality > 10:
+                    quality -= 5
                     img.save(new_path, format=img_format, quality=quality)
-                    while os.path.getsize(new_path) > max_size_kb * 1024 and quality > 10:
-                        quality -= 5
-                        img.save(new_path, format=img_format, quality=quality)
-                    print(f"Image saved at: {new_path} with quality: {quality}")
-                else:
-                    # If the image doesn't need to be downgraded, optionally copy it as is or skip
-                    print(f"Image does not exceed max size and was not downgraded: {filename}")
+                print(f"Image saved at: {new_path} with quality: {quality}")
 
 
         except Exception as e:
